@@ -17,3 +17,29 @@ test('待执行任务在生效时仅生成一次批次，到期按时间完成',
 
 import {questionnaireBlockReason} from './taskService.js';
 test('问卷结束时间同时限制作答，提交时刻到期立即拦截',()=>{const t={status:'执行中',start:'2026-10-16T09:00',end:'2026-10-16T18:00'};assert.equal(questionnaireBlockReason(t,'2026-10-16 17:59:59'),'');assert.match(questionnaireBlockReason(t,'2026-10-16 18:00:00'),/到期/);assert.match(questionnaireBlockReason(t,'2026-10-16 08:59:59'),/尚未开始/);assert.match(questionnaireBlockReason({...t,status:'已终止'},'2026-10-16 17:00:00'),/终止/)});
+
+import {parseDevices} from './deviceTargets.js';
+test('设备名单只填ID，去重并拒绝多列',()=>{const r=parseDevices('device_id\nx\nx\ny\nbad,ios');assert.equal(r.total,4);assert.equal(r.duplicates,1);assert.equal(r.devices.length,2);assert.equal(r.errors[0].line,5)});
+test('设备推送无UID业务消息，补发及点击统计按设备隔离',()=>{const t={...notice(),targetMode:'device',channels:['Push']};let d=createTask(empty(),t,[{deviceId:'a',platform:'Android'},{deviceId:'b',platform:'iOS'}]);assert.equal(d.messages.length,0);assert.equal(d.carriers.length,2);assert.ok(d.carriers.every(c=>!c.uid));d.carriers[0].clicked=true;const n=resendTask(d,t.id,'',[],'任务内未点击设备');assert.equal(n.carriers.length,3);assert.equal(n.carriers.at(-1).deviceId,'b');const stats=carrierStats(n.carriers);assert.equal(stats.uv,0);assert.equal(stats.devices,1);assert.equal(stats.deviceTotal,2);assert.throws(()=>createTask(empty(),{...t,scene:'回访问卷',version:'V2.1'},[{deviceId:'a',platform:'iOS'}]),/仅支持/);assert.equal(createTask(empty(),{...t,channels:['Push','弹窗']},[{deviceId:'a',platform:'iOS'}]).carriers.length,2)});
+
+import {frequencyLabel,normalizeFrequency} from './frequency.js';
+import {resolveJump} from './navigation.js';
+test('频次说明区分下发和曝光，并兼容历史选项',()=>{assert.equal(normalizeFrequency('未全部完成用户每3天一次'),'每3天一次');assert.match(frequencyLabel('每日一次','push'),/Push 下发起间隔24小时/);assert.match(frequencyLabel('每7天一次','popup'),/有效曝光起间隔168小时/);assert.equal(resolveJump({pushJumpType:'原生页面',pushNativePage:'适当性回访列表'},'push'),'/suitability/return-visits')});
+test('设备任务按所选推送平台创建及补发载体',()=>{const t={...notice(),targetMode:'device',channels:['Push'],pushPlatform:'ios'};const d=createTask(empty(),t,[{deviceId:'a',platform:'Android'},{deviceId:'b',platform:'iOS'}]);assert.equal(d.targets.length,2);assert.equal(d.carriers.length,1);assert.equal(d.carriers[0].platform,'iOS');assert.equal(resendTask(d,t.id,'',[]).carriers.length,2)});
+
+test('设备弹窗独立于Push平台筛选，支持单独发送和未曝光补发',()=>{
+ const devices=[{deviceId:'a',platform:'Android'},{deviceId:'b',platform:'iOS'}];
+ const task={...notice(),targetMode:'device',channels:['Push','弹窗'],pushPlatform:'ios'};
+ const d=createTask(empty(),task,devices);
+ assert.equal(d.carriers.filter(c=>c.channel==='Push').length,1);
+ assert.equal(d.carriers.filter(c=>c.channel==='弹窗').length,2);
+ d.carriers.find(c=>c.channel==='弹窗'&&c.deviceId==='a').shown=true;
+ const next=resendTask(d,task.id,'',[],'弹窗未曝光设备');
+ assert.equal(next.carriers.length,5);
+ assert.ok(next.carriers.slice(3).every(c=>c.deviceId==='b'));
+ const only=createTask(empty(),{...task,channels:['弹窗'],pushPlatform:'android'},[devices[1]]);
+ assert.equal(only.carriers.length,1);assert.equal(only.carriers[0].channel,'弹窗');
+ assert.equal(only.messages.length,0);assert.equal(carrierStats(d.carriers).shows,1);
+});
+
+test('仅设备ID可创建，Push平台不伪装成设备实际平台',()=>{const t={...notice(),targetMode:'device',channels:['Push','弹窗'],pushPlatform:'ios'};const d=createTask(empty(),t,parseDevices('a\na\nb').devices);assert.equal(d.targets.length,2);assert.equal(d.carriers.length,4);assert.ok(d.carriers.every(c=>!c.platform));assert.equal(d.tasks[0].pushPlatform,'ios');});
