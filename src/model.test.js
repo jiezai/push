@@ -43,3 +43,35 @@ test('设备弹窗独立于Push平台筛选，支持单独发送和未曝光补�
 });
 
 test('仅设备ID可创建，Push平台不伪装成设备实际平台',()=>{const t={...notice(),targetMode:'device',channels:['Push','弹窗'],pushPlatform:'ios'};const d=createTask(empty(),t,parseDevices('a\na\nb').devices);assert.equal(d.targets.length,2);assert.equal(d.carriers.length,4);assert.ok(d.carriers.every(c=>!c.platform));assert.equal(d.tasks[0].pushPlatform,'ios');});
+
+import {validatePopup,needsAppFallback,popupEnvironments} from './navigation.js';
+test('跨端弹窗限定设备环境并校验唤起兜底',()=>{
+ const t={channels:['弹窗'],targetMode:'uid',popupEnvironments:['web'],popupWebPages:'https://example.com/activity',popupJumpType:'原生页面'};
+ assert.throws(()=>validatePopup(t),/下载引导/);
+ assert.doesNotThrow(()=>validatePopup({...t,popupFallbackUrl:'https://example.com/download'}));
+ assert.throws(()=>validatePopup({...t,popupFallbackUrl:'http://example.com/download'}),/HTTPS/);
+ assert.throws(()=>validatePopup({...t,targetMode:'device'}),/仅支持/);
+ assert.throws(()=>validatePopup({...t,popupEnvironments:[]}),/展示环境/);
+ assert.throws(()=>validatePopup({...t,popupWebPages:''}),/展示页面/);
+ assert.equal(needsAppFallback({...t,popupJumpType:'H5 页面',popupOpenMode:'app_webview'}),false);
+ assert.doesNotThrow(()=>validatePopup({...t,popupJumpType:'H5 页面',popupOpenMode:'follow_environment'}));
+ assert.deepEqual(popupEnvironments({}),['app']);
+});
+
+import {validateUidImport} from './uidImport.js';
+test('UID导入按类型解析保留前导零，跨标识去重，错误阻断',()=>{
+ const ok=validateUidImport('UID类型,ID/客户号\nhxid,demo_hxid_001\n客户号,000001');
+ assert.deepEqual(ok.uids,['DEMO0001']);assert.equal(ok.duplicates,1);assert.equal(ok.entries[1].value,'000001');
+ for(const row of ['hxid,unknown','客户号,000002','other,000001','hxid,']){const r=validateUidImport('UID类型,ID/客户号\nhxid,demo_hxid_001\n'+row);assert.equal(r.errors.length,1);assert.equal(r.errors[0].line,3);assert.deepEqual(r.uids,[]);}
+ assert.equal(validateUidImport('').errors.length,1);
+});
+
+import {baselineRows,filterSnapshots,baselineFields} from './snapshotExport.js';
+test('快照导出使用不可变基线，字段与弹窗一致，筛选按基线执行',()=>{
+ const rows=[{name:'当前姓名',risk:'R5',snapshot:{id:'s1',name:'原始姓名',uid:'001',risk:'R1',type:'个人',cert:'31***',version:'V2.1'}},{snapshot:{id:'s2',name:'另一人',risk:'R2',type:'机构'}}];
+ const result=filterSnapshots(rows,{name:'原始',risk:'R1'});
+ assert.equal(result.length,1);const exported=baselineRows(result)[0];
+ assert.deepEqual(Object.keys(exported),baselineFields.map(([label])=>label));
+ assert.equal(exported['客户姓名'],'原始姓名');assert.equal(exported['用户 UID'],'001');assert.equal(exported['证件号码'],'31***');assert.equal(exported['产品风险等级'],'R1');
+ assert.equal(filterSnapshots(rows,{risk:'R5'}).length,0);
+});

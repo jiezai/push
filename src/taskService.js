@@ -1,7 +1,8 @@
+import {validatePopup} from './navigation.js';
 import {isDevice,targetKey} from './deviceTargets.js';
 import {newRows,makeBatch,makeCarriers,now,eligible} from './model.js';
 export const isSurvey=t=>t.scene!=='普通消息通知';
-export function migrate(data){return {...data,tasks:data.tasks.map(t=>({...t,scene:t.scene||'回访问卷',targetMode:t.targetMode||'uid'})),targets:data.targets||data.tasks.flatMap(t=>[...new Map(data.messages.filter(r=>r.taskId===t.id).map(r=>[r.uid,{taskId:t.id,uid:r.uid,type:r.type}])).values()])};}
+export function migrate(data){return {...data,tasks:data.tasks.map(t=>({...t,scene:t.scene||'回访问卷',targetMode:t.targetMode||'uid',pushOpenMode:'follow_environment',popupOpenMode:'follow_environment'})),targets:data.targets||data.tasks.flatMap(t=>[...new Map(data.messages.filter(r=>r.taskId===t.id).map(r=>[r.uid,{taskId:t.id,uid:r.uid,type:r.type}])).values()])};}
 export function carrierStats(rows){const unique=[...new Map(rows.map(c=>[c.id,c])).values()];const push=unique.filter(c=>c.channel==='Push'),pop=unique.filter(c=>c.channel==='弹窗');return {push:push.length,pushClicks:push.filter(c=>c.clicked).length,uv:new Set(push.filter(c=>c.clicked&&!c.deviceId).map(c=>c.uid)).size,deviceTotal:new Set(push.filter(c=>c.deviceId).map(targetKey)).size,devices:new Set(push.filter(c=>c.clicked&&c.deviceId).map(targetKey)).size,pop:pop.length,shows:pop.filter(c=>c.shown||c.clicked).length,clicks:pop.filter(c=>c.clicked).length};}
 export function targetUsers(data,task,scope='原始目标人群'){
  const targets=data.targets.filter(r=>r.taskId===task.id&&(isDevice(task)||r.type==='个人')&&(!isDevice(task)||task.channels.includes('弹窗')||!task.pushPlatform||task.pushPlatform==='全部'||!r.platform||r.platform.toLowerCase()===task.pushPlatform)&&!r.disabled&&!r.blacklisted);
@@ -13,6 +14,7 @@ export function targetUsers(data,task,scope='原始目标人群'){
 }
 function notificationBatch(task,targets,index,remark='',attachments=[],scope='原始目标人群') {const batch={id:`${task.id}-B${index}`,taskId:task.id,type:index===1?'首次下发':'补发',time:now(),operator:'运营管理员',members:[],uids:targets.map(targetKey),remark,attachments,scope};const carriers=targets.flatMap(r=>task.channels.filter(channel=>channel!=='Push'||!isDevice(task)||!task.pushPlatform||task.pushPlatform==='全部'||!r.platform||r.platform.toLowerCase()===task.pushPlatform).map(channel=>({id:`${batch.id}-${channel}-${encodeURIComponent(targetKey(r))}`,taskId:task.id,batchId:batch.id,uid:r.uid||'',deviceId:r.deviceId||'',platform:r.platform||'',targetMode:task.targetMode||'uid',channel,time:batch.time,shown:false,clicked:false,members:[]})));return {batch,carriers};}
 export function createTask(data,task,uids){
+ if(task.popupEnvironments)validatePopup(task);
  if(isDevice(task)&&(isSurvey(task)||task.channels.some(c=>!['Push','弹窗'].includes(c))))throw Error('设备 ID 模式仅支持普通通知的 Push／弹窗');
  if(task.pushPlatform&&!['全部','ios','android'].includes(task.pushPlatform))throw Error('请选择有效的推送平台');
 

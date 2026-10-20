@@ -1,0 +1,3 @@
+export const baselineFields=[['快照 ID','id'],['问卷版本','version'],['客户姓名','name'],['用户 UID','uid'],['目标人类型','type'],['联系电话','phone'],['证件号码','cert'],['电子邮箱','email'],['持仓产品','product'],['产品编码','productId'],['客户风险等级','customerRisk'],['产品风险等级','risk'],['生成时间','time']];
+export function baselineRows(rows){return rows.map(({snapshot:s})=>Object.fromEntries(baselineFields.map(([label,key])=>[label,s?.[key]||(key==='version'?'未设置':'—')])));}
+export function filterSnapshots(rows,filters){return rows.filter(({snapshot:s})=>s&&Object.entries(filters).every(([key,value])=>!value||(key==='type'||key==='risk'||key==='customerRisk'?s[key]===value:String(s[key]||'').toLowerCase().includes(value.trim().toLowerCase()))));}
