@@ -25,18 +25,18 @@ test('设备推送无UID业务消息，补发及点击统计按设备隔离',()=
 import {frequencyLabel,normalizeFrequency} from './frequency.js';
 import {resolveJump} from './navigation.js';
 test('频次说明区分下发和曝光，并兼容历史选项',()=>{assert.equal(normalizeFrequency('未全部完成用户每3天一次'),'每3天一次');assert.match(frequencyLabel('每日一次','push'),/Push 下发起间隔24小时/);assert.match(frequencyLabel('每7天一次','popup'),/有效曝光起间隔168小时/);assert.equal(resolveJump({pushJumpType:'原生页面',pushNativePage:'适当性回访列表'},'push'),'/suitability/return-visits')});
-test('设备任务按所选推送平台创建及补发载体',()=>{const t={...notice(),targetMode:'device',channels:['Push'],pushPlatform:'ios'};const d=createTask(empty(),t,[{deviceId:'a',platform:'Android'},{deviceId:'b',platform:'iOS'}]);assert.equal(d.targets.length,2);assert.equal(d.carriers.length,1);assert.equal(d.carriers[0].platform,'iOS');assert.equal(resendTask(d,t.id,'',[]).carriers.length,2)});
+test('设备任务不再按历史推送平台过滤初发及补发',()=>{const t={...notice(),targetMode:'device',channels:['Push'],pushPlatform:'ios'};const d=createTask(empty(),t,[{deviceId:'a',platform:'Android'},{deviceId:'b',platform:'iOS'}]);assert.equal(d.targets.length,2);assert.equal(d.carriers.length,2);assert.equal(resendTask(d,t.id,'',[]).carriers.length,4)});
 
 test('设备弹窗独立于Push平台筛选，支持单独发送和未曝光补发',()=>{
  const devices=[{deviceId:'a',platform:'Android'},{deviceId:'b',platform:'iOS'}];
  const task={...notice(),targetMode:'device',channels:['Push','弹窗'],pushPlatform:'ios'};
  const d=createTask(empty(),task,devices);
- assert.equal(d.carriers.filter(c=>c.channel==='Push').length,1);
+ assert.equal(d.carriers.filter(c=>c.channel==='Push').length,2);
  assert.equal(d.carriers.filter(c=>c.channel==='弹窗').length,2);
  d.carriers.find(c=>c.channel==='弹窗'&&c.deviceId==='a').shown=true;
  const next=resendTask(d,task.id,'',[],'弹窗未曝光设备');
- assert.equal(next.carriers.length,5);
- assert.ok(next.carriers.slice(3).every(c=>c.deviceId==='b'));
+ assert.equal(next.carriers.length,6);
+ assert.ok(next.carriers.slice(4).every(c=>c.deviceId==='b'));
  const only=createTask(empty(),{...task,channels:['弹窗'],pushPlatform:'android'},[devices[1]]);
  assert.equal(only.carriers.length,1);assert.equal(only.carriers[0].channel,'弹窗');
  assert.equal(only.messages.length,0);assert.equal(carrierStats(d.carriers).shows,1);
@@ -74,4 +74,19 @@ test('快照导出使用不可变基线，字段与弹窗一致，筛选按基�
  assert.deepEqual(Object.keys(exported),baselineFields.map(([label])=>label));
  assert.equal(exported['客户姓名'],'原始姓名');assert.equal(exported['用户 UID'],'001');assert.equal(exported['证件号码'],'31***');assert.equal(exported['产品风险等级'],'R1');
  assert.equal(filterSnapshots(rows,{risk:'R5'}).length,0);
+});
+
+import * as XLSX from 'xlsx';
+import {readImportFile} from './importFile.js';
+test('XLSX名单读取首表并保留文本前导零，复用名单校验',async()=>{
+ const book=XLSX.utils.book_new();
+ XLSX.utils.book_append_sheet(book,XLSX.utils.aoa_to_sheet([['UID类型','ID/客户号'],['客户号','000001']]),'名单');
+ XLSX.utils.book_append_sheet(book,XLSX.utils.aoa_to_sheet([['忽略']]),'其他');
+ const file={name:'名单.xlsx',arrayBuffer:async()=>XLSX.write(book,{type:'array',bookType:'xlsx'})};
+ const text=await readImportFile(file);
+ assert.equal(text,'UID类型,ID/客户号\n客户号,000001');
+ assert.deepEqual(validateUidImport(text).uids,['DEMO0001']);
+ await assert.rejects(()=>readImportFile({name:'名单.xls'}),/仅支持/);
+ const empty=XLSX.utils.book_new();XLSX.utils.book_append_sheet(empty,XLSX.utils.aoa_to_sheet([]),'空表');
+ await assert.rejects(()=>readImportFile({name:'空.xlsx',arrayBuffer:async()=>XLSX.write(empty,{type:'array',bookType:'xlsx'})}),/为空/);
 });
