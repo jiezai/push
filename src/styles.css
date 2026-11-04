@@ -54,3 +54,15 @@
 .pdf-page-preview img{display:block;width:100%;max-width:640px;height:auto;margin:auto;box-shadow:0 2px 12px #20345018;background:#fff}
 @media(max-width:600px){.pdf-page-preview{padding:8px}}
 .carrier-scope-hint{display:inline-block;margin-left:10px;font-size:12px;font-weight:400;color:#8793a7}
+
+.questionnaire-document{background:white;color:#111;padding:32px;max-width:850px;margin:16px auto;font-family:"SimSun","Songti SC",serif}
+.questionnaire-document h2{text-align:center;font-size:23px;margin:0 0 24px}
+.questionnaire-document table{width:100%;min-width:0;border-collapse:collapse;table-layout:fixed}
+.questionnaire-document td{border:1px solid #222;padding:9px 10px;white-space:normal;word-break:break-word;font-size:14px;line-height:1.65;color:#111}
+.questionnaire-document td p{margin:3px 0}
+.questionnaire-document .snapshot-value{white-space:pre-wrap}
+@media(max-width:600px){.questionnaire-document{padding:12px}.questionnaire-document td{padding:5px;font-size:12px}}
+
+.snapshot-pdf-meta{font-size:11px;color:#555;overflow-wrap:anywhere;margin:0 0 12px}
+
+.questionnaire-document td[rowspan]{vertical-align:middle;text-align:center}

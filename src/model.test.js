@@ -115,3 +115,28 @@ test('两条演示异常只更新内置未触达样例且重复执行不增加�
  assert.ok(next.carriers.slice(0,2).every(c=>!c.shown&&!c.clicked));
  assert.deepEqual(addDemoCarrierExamples(next),next);
 });
+
+import {snapshotProducts} from './fileSnapshot.js';
+test('文件快照汇总同任务同客户产品并去重，不混入其他客户或任务',()=>{
+ const r={taskId:'t',uid:'u',snapshot:{product:'A',productId:'01'}};
+ const rows=[r,r,{...r,snapshot:{product:'B',productId:'02'}},{...r,uid:'other',snapshot:{productId:'03'}},{...r,taskId:'other',snapshot:{productId:'04'}}];
+ assert.deepEqual(snapshotProducts(r,rows).map(p=>p.productId),['01','02']);
+});
+
+import {migrateCustomerNames} from './customerNames.js';
+test('完整演示姓名同步列表与快照，不推断真实脱敏姓名',()=>{
+ const d={messages:[{taskId:'T202610001',uid:'U10001',name:'陈**',snapshot:{name:'陈**'}},{taskId:'real',uid:'real',name:'陈**',snapshot:{name:'陈**'}}]};
+ const result=migrateCustomerNames(d);
+ assert.equal(result.messages[0].name,'陈明远');
+ assert.equal(result.messages[0].snapshot.name,'陈明远');
+ assert.equal(result.messages[1].name,'陈**');
+ assert.deepEqual(migrateCustomerNames(result),result);
+});
+
+import {snapshotPdfScope} from './snapshotPdfScope.js';
+test('PDF导出按任务客户版本去重并拒绝缺失版本',()=>{
+ const r={taskId:'t',uid:'u',snapshot:{version:'v1'}};
+ assert.equal(snapshotPdfScope([r,{...r,id:'other'}, {...r,uid:'b'}, {...r,taskId:'t2'}]).length,3);
+ assert.throws(()=>snapshotPdfScope([]),/没有/);
+ assert.throws(()=>snapshotPdfScope([r,{...r,snapshot:{}}]),/问卷版本/);
+});
