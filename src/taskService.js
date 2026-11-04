@@ -1,3 +1,4 @@
+import {carrierState} from './carrierStatus.js';
 import {validatePopup} from './navigation.js';
 import {isDevice,targetKey} from './deviceTargets.js';
 import {newRows,makeBatch,makeCarriers,now,eligible} from './model.js';
@@ -31,6 +32,7 @@ function dispatch(data,task,first=false,remark='',files=[],scope='原始目标�
  let batch,carriers;
  if(isSurvey(task)){batch=makeBatch(task,rows,index,remark,files);carriers=makeCarriers(task,batch,rows);}else{({batch,carriers}=notificationBatch(task,targetUsers(data,task,scope),index,remark,files,scope));}
  if(!first&&!carriers.length)throw Error('当前筛选范围没有可补发的目标');
+ carriers=carriers.map(c=>{const target=data.targets.find(r=>r.taskId===task.id&&targetKey(r)===targetKey(c))||{};const state=carrierState({...target,channel:c.channel});return {...c,exceptionReasons:state.reasons,carrierStatus:state.status,...(state.status==='异常'?{shown:false,clicked:false}:{})};});
  return {...data,batches:[...data.batches,batch],carriers:[...data.carriers,...carriers]};
 }
 export function resendTask(data,id,remark,files,scope){const task=data.tasks.find(t=>t.id===id);if(!task||task.status!=='执行中'||task.end.replace('T',' ')<=now())throw Error('仅生效期内执行中的任务可补发');return dispatch(data,task,false,remark,files,scope);}

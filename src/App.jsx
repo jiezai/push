@@ -1,3 +1,4 @@
+import {addDemoCarrierExamples} from './demoCarrierExamples';
 import {defaultMessagePermissions,canMessage} from './messagePermissions';
 import React,{useState,useEffect} from 'react';
 import {ClipboardList,MessageSquare,FileText,HelpCircle,UserRound,ChevronRight,Menu,CheckCircle2,ShieldCheck} from 'lucide-react';
@@ -15,6 +16,7 @@ export default function App(){
  const [data,setData]=useState(()=>{try{return advanceTasks(migrate(JSON.parse(localStorage.getItem(KEY)||localStorage.getItem(LEGACY))||seedData()))}catch{return migrate(seedData())}}),[page,setPage]=useState('任务管理'),[taskId,setTaskId]=useState(''),[scope,setScope]=useState({}),[modal,setModal]=useState(null),[toast,setToast]=useState(''),[mobile,setMobile]=useState(false);
  useEffect(()=>{try{localStorage.setItem(KEY,JSON.stringify(data))}catch{setToast('本地存储空间不足，本次操作仅在当前页面保留。')}},[data]);useEffect(()=>{if(toast){const t=setTimeout(()=>setToast(''),4500);return()=>clearTimeout(t)}},[toast]);
  useEffect(()=>{const timer=setInterval(()=>setData(d=>advanceTasks(d)),30000);return()=>clearInterval(timer)},[]);
+ useEffect(()=>{setData(d=>addDemoCarrierExamples(d));},[]);
  const permissions=defaultMessagePermissions;
  const allowed=action=>{if(canMessage(permissions,action))return true;setToast('无此操作权限');return false};
  const close=()=>setModal(null);const task=data.tasks.find(t=>t.id===taskId);const activeRow=modal?.row?data.messages.find(r=>r.id===modal.row.id):null;

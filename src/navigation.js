@@ -17,14 +17,18 @@ export function resolveJump(form,prefix){
 export const h5OpeningModeLabel='跟随当前环境——App 内嵌打开，App 外浏览器打开';
 export function normalizeJumpType(type){return !type||type==='App 内嵌 H5'?'H5 页面':type;}
 export const openingModes={follow_environment:h5OpeningModeLabel};
-export const popupEnvironments=form=>form.targetMode==='device'?['app']:(form.popupEnvironments||['app']);
-export const needsAppFallback=form=>popupEnvironments(form).includes('web')&&normalizeJumpType(form.popupJumpType)==='原生页面';
+export const appPopupPages=['路演-公募','路演-私募','我的'];
+export const h5PopupPages=['公募首页','私募首页','自选-私募','自选-公募','资产二级页面','公募基金详情','私募基金详情','路演-公募','路演-私募'];
+export const popupEnvironments=form=>form.popupEnvironments||(form.targetMode==='device'?['app']:['app']);
+export const needsAppFallback=form=>(popupEnvironments(form).includes('web')||(form.targetMode!=='device'&&popupEnvironments(form).includes('h5')))&&normalizeJumpType(form.popupJumpType)==='原生页面';
 export function validatePopup(form){
  if(!form.channels.includes('弹窗'))return;
  const env=popupEnvironments(form);
- if(!env.length||env.some(v=>!['app','web'].includes(v)))throw Error('请选择弹窗展示环境');
+ if(!env.length||env.some(v=>!['app','web','native','h5'].includes(v)))throw Error('请选择弹窗展示环境');
  if(form.targetMode==='device'&&form.popupEnvironments?.includes('web'))throw Error('设备定向弹窗仅支持 App 内展示');
- if(env.includes('app')&&!form.pages?.length)throw Error('请选择 App 展示页面');
+ if((env.includes('app')||env.includes('native'))&&!form.pages?.length)throw Error('请选择 App 展示页面');
+ if(env.includes('native')&&form.pages.some(p=>!appPopupPages.includes(p)))throw Error('请选择有效的 App 原生展示页面');
+ if(env.includes('h5')&&(!form.popupH5Pages?.length||form.popupH5Pages.some(p=>!h5PopupPages.includes(p))))throw Error('请选择 H5 内展示页面');
  const https=value=>{try{const u=new URL(value);return u.protocol==='https:'&&!!u.hostname}catch{return false}};
  if(env.includes('web')&&(!form.popupWebPages?.trim()||form.popupWebPages.trim().split(/\s+/).some(v=>!https(v))))throw Error('请填写完整 HTTPS 的 App 外展示页面，每行一个');
  if(needsAppFallback(form)&&!https(form.popupFallbackUrl))throw Error('请填写完整 HTTPS 的 App 下载引导页地址');

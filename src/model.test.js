@@ -90,3 +90,28 @@ test('XLSX名单读取首表并保留文本前导零，复用名单校验',async
  const empty=XLSX.utils.book_new();XLSX.utils.book_append_sheet(empty,XLSX.utils.aoa_to_sheet([]),'空表');
  await assert.rejects(()=>readImportFile({name:'空.xlsx',arrayBuffer:async()=>XLSX.write(empty,{type:'array',bookType:'xlsx'})}),/为空/);
 });
+
+import {carrierState} from './carrierStatus.js';
+test('载体异常按渠道隔离，正常原因不适用，多原因保留',()=>{
+ assert.equal(carrierState({channel:'Push'}).reason,'不适用');
+ assert.equal(carrierState({channel:'Push',popupBlacklisted:true}).status,'正常');
+ assert.equal(carrierState({channel:'弹窗',pushEnabled:false}).status,'正常');
+ assert.equal(carrierState({channel:'Push',pushBlacklisted:true,pushEnabled:false}).reason,'Push 黑名单、Push 关闭推送开关');
+ assert.equal(carrierState({channel:'弹窗',popupBlacklisted:true}).reason,'弹窗黑名单');
+ const t=notice();let d=createTask(empty(),t,['u1']);
+ d.targets[0].pushEnabled=false;
+ d=resendTask(d,t.id,'',[]);
+ const latest=d.carriers.filter(c=>c.batchId.endsWith('-B2'));
+ assert.equal(carrierState(latest.find(c=>c.channel==='Push')).status,'异常');
+ assert.equal(carrierState(latest.find(c=>c.channel==='弹窗')).status,'正常');
+});
+
+import {addDemoCarrierExamples} from './demoCarrierExamples.js';
+test('两条演示异常只更新内置未触达样例且重复执行不增加记录',()=>{
+ const data=seedData(),next=addDemoCarrierExamples(data);
+ assert.equal(next.carriers.length,data.carriers.length);
+ assert.equal(next.carriers.filter(c=>c.demoExceptionExample).length,2);
+ assert.deepEqual(next.carriers.slice(0,2).map(c=>carrierState(c).status),['异常','异常']);
+ assert.ok(next.carriers.slice(0,2).every(c=>!c.shown&&!c.clicked));
+ assert.deepEqual(addDemoCarrierExamples(next),next);
+});
