@@ -66,3 +66,5 @@
 .snapshot-pdf-meta{font-size:11px;color:#555;overflow-wrap:anywhere;margin:0 0 12px}
 
 .questionnaire-document td[rowspan]{vertical-align:middle;text-align:center}
+
+.questionnaire-signoff{position:relative;min-height:210px;display:flex;align-items:center;justify-content:flex-end;break-inside:avoid}.questionnaire-signoff img{position:absolute;right:0;top:0;width:230px;height:auto}.questionnaire-signoff>div{position:relative;text-align:right;padding-right:20px;font-size:14px}.questionnaire-signoff p{margin:12px 0}

@@ -18,12 +18,16 @@ export async function exportSnapshotPdf(rows,allRows,onProgress=()=>{}){
    flushSync(()=>root.render(<QuestionnaireFileSnapshot row={row} rows={allRows} exportMode/>));
    await document.fonts.ready;
    const article=host.querySelector('.questionnaire-document');
+   await Promise.all([...article.querySelectorAll('img')].map(img=>img.decode()));
    const canvas=await html2canvas(article,{scale:2,backgroundColor:'#ffffff',logging:false,windowWidth:1100});
    const width=190,limit=Math.floor(canvas.width*267/width);
+   const signoff=article.querySelector('.questionnaire-signoff');
+   const signoffTop=signoff?Math.floor((signoff.getBoundingClientRect().top-article.getBoundingClientRect().top)*2):canvas.height;
    let offset=0;
    const ctx=canvas.getContext('2d',{willReadFrequently:true});
    while(offset<canvas.height){
     let end=Math.min(offset+limit,canvas.height);
+    if(offset<signoffTop&&end>signoffTop&&end<canvas.height)end=signoffTop;
     // Prefer whitespace between text lines; ignore the thin vertical table borders.
     if(end<canvas.height){
      const start=Math.max(offset+Math.floor(limit*.75),end-180);
